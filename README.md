@@ -41,8 +41,29 @@ python -m logogrowth granola.ai
 # Custom time points (months ago) and a JSON report
 python -m logogrowth granola.ai --months 3 6 9 12 --json report.json
 
+# Walk EVERY monthly Wayback snapshot and chart logo count over time
+python -m logogrowth granola.ai --timeline --csv granola_timeline.csv
+
+# Limit the timeline to the 12 most recent snapshots
+python -m logogrowth granola.ai --timeline --max-points 12
+
 # JSON to stdout, verbose progress on stderr
 python -m logogrowth notion.so --json - -v
+```
+
+### Timeline mode
+
+`--timeline` ignores `--months` and instead creates one data point for **every
+monthly snapshot** the Wayback Machine has, giving a month-by-month growth
+curve. Pair it with `--csv` to open the series in a spreadsheet and chart it:
+
+```
+When            Date        Source       Logos
+2024-11         2024-11-18  20241118        12  ███████
+2025-05         2025-05-18  20250518        15  █████████
+2025-11         2025-11-20  20251120        28  ████████████████
+current         2026-05-24  live            42  ████████████████████████
+Growth 2024-11 → current: 12 → 42  ▲ +30 (+250%)
 ```
 
 ### JS-heavy sites: `--render`
@@ -82,6 +103,9 @@ gospel. For a definitive view use `--render --screenshot-dir`.
 | Flag | Description |
 |------|-------------|
 | `--months N [N ...]` | Historical offsets in months (default `6 12 18`). |
+| `--timeline` | Walk every monthly Wayback snapshot (ignores `--months`). |
+| `--max-points N` | In `--timeline`, cap to the N most recent snapshots (0 = all). |
+| `--csv PATH` | Write a CSV report (`-` for stdout). |
 | `--render` | Render pages with headless Chromium (needs Playwright). |
 | `--screenshot-dir DIR` | Save full-page screenshots (requires `--render`). |
 | `--json PATH` | Write a JSON report (`-` for stdout). |

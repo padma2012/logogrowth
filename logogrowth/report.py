@@ -27,6 +27,21 @@ def _bar(n: int, scale: int, width: int = 24) -> str:
     return "█" * max(0, min(width, round(n / scale * width)))
 
 
+def _date_key(p: "TimePoint") -> datetime:
+    try:
+        return datetime.strptime(p.target_date, "%Y-%m-%d")
+    except ValueError:
+        return datetime.min
+
+
+def _oldest_newest(points: list["TimePoint"]):
+    valid = [p for p in points if not p.error]
+    if not valid:
+        return None, None
+    ordered = sorted(valid, key=_date_key)
+    return ordered[0], ordered[-1]
+
+
 def render_text(domain: str, points: list[TimePoint]) -> str:
     valid = [p for p in points if not p.error]
     scale = max((p.count for p in valid), default=0)
@@ -49,9 +64,9 @@ def render_text(domain: str, points: list[TimePoint]) -> str:
         )
     lines.append("-" * 60)
 
-    # Growth summary: oldest valid point -> current/newest valid point.
+    # Growth summary: oldest valid point -> newest valid point (by date).
     if len(valid) >= 2:
-        oldest, newest = valid[-1], valid[0]
+        oldest, newest = _oldest_newest(points)
         delta = newest.count - oldest.count
         pct = (delta / oldest.count * 100) if oldest.count else None
         arrow = "▲" if delta > 0 else ("▼" if delta < 0 else "—")
@@ -82,7 +97,7 @@ def build_json(domain: str, points: list[TimePoint]) -> dict:
     valid = [p for p in points if not p.error]
     summary = {}
     if len(valid) >= 2:
-        oldest, newest = valid[-1], valid[0]
+        oldest, newest = _oldest_newest(points)
         delta = newest.count - oldest.count
         summary = {
             "from_label": oldest.label,
@@ -100,3 +115,19 @@ def build_json(domain: str, points: list[TimePoint]) -> dict:
         "points": [p.to_dict() for p in points],
         "summary": summary,
     }
+
+
+def build_csv(points: list[TimePoint]) -> str:
+    """One row per time point, sorted oldest -> newest for easy charting."""
+    import csv
+    import io
+
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["date", "label", "source", "logo_count",
+                     "sections_found", "names", "url_used", "error"])
+    for p in sorted(points, key=_date_key):
+        writer.writerow([p.target_date, p.label, p.source, p.count,
+                         p.sections_found, "; ".join(p.names),
+                         p.url_used, p.error])
+    return out.getvalue()
