@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 render = ["playwright>=1.40"]
+chart = ["matplotlib>=3.6"]
 
 [project.scripts]
 logogrowth = "logogrowth.cli:main"

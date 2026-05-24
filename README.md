@@ -44,6 +44,9 @@ python -m logogrowth granola.ai --months 3 6 9 12 --json report.json
 # Walk EVERY monthly Wayback snapshot and chart logo count over time
 python -m logogrowth granola.ai --timeline --csv granola_timeline.csv
 
+# Same, but also save a PNG growth chart (needs matplotlib)
+python -m logogrowth granola.ai --timeline --chart granola_growth.png
+
 # Limit the timeline to the 12 most recent snapshots
 python -m logogrowth granola.ai --timeline --max-points 12
 
@@ -65,6 +68,9 @@ When            Date        Source       Logos
 current         2026-05-24  live            42  ████████████████████████
 Growth 2024-11 → current: 12 → 42  ▲ +30 (+250%)
 ```
+
+Add `--chart growth.png` (after `pip install matplotlib`) to save the same
+series as a PNG line chart instead of reading the ASCII bars.
 
 ### JS-heavy sites: `--render`
 
@@ -106,6 +112,7 @@ gospel. For a definitive view use `--render --screenshot-dir`.
 | `--timeline` | Walk every monthly Wayback snapshot (ignores `--months`). |
 | `--max-points N` | In `--timeline`, cap to the N most recent snapshots (0 = all). |
 | `--csv PATH` | Write a CSV report (`-` for stdout). |
+| `--chart PATH` | Write a PNG line chart of logo count over time (needs matplotlib). |
 | `--render` | Render pages with headless Chromium (needs Playwright). |
 | `--screenshot-dir DIR` | Save full-page screenshots (requires `--render`). |
 | `--json PATH` | Write a JSON report (`-` for stdout). |

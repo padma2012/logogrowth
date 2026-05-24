@@ -166,6 +166,14 @@ def run(args: argparse.Namespace) -> int:
         from .report import build_csv
         _write_out(args.csv, build_csv(points), "CSV")
 
+    if args.chart:
+        from .chart import render_chart, ChartError
+        try:
+            render_chart(domain, points, args.chart)
+            print(f"\nChart written to {args.chart}", file=sys.stderr)
+        except ChartError as exc:
+            print(f"[chart] {exc}", file=sys.stderr)
+
     return 0 if any(not p.error for p in points) else 1
 
 
@@ -187,6 +195,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "snapshots (0 = no limit)")
     p.add_argument("--csv", metavar="PATH",
                    help="write a CSV report to PATH ('-' for stdout)")
+    p.add_argument("--chart", metavar="PATH",
+                   help="write a PNG line chart of logo count over time "
+                        "(needs matplotlib)")
     p.add_argument("--render", action="store_true",
                    help="render pages with headless Chromium (Playwright) "
                         "for JS-heavy sites")
