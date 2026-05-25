@@ -38,6 +38,9 @@ def render_chart(domain: str, points, path: str) -> str:
     pts = sorted(valid, key=_date_key)
     xs = [_date_key(p) for p in pts]
     ys = [p.count for p in pts]
+    oldest, newest = pts[0], pts[-1]
+    total_delta = newest.count - oldest.count
+    pct = (total_delta / oldest.count * 100) if oldest.count else None
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(xs, ys, marker="o", linewidth=2, color="#2563eb", zorder=3)
@@ -46,8 +49,27 @@ def render_chart(domain: str, points, path: str) -> str:
         ax.annotate(str(y), (x, y), textcoords="offset points", xytext=(0, 9),
                     ha="center", fontsize=8, color="#374151")
 
+    # Per-segment change (only when not too crowded).
+    if len(pts) <= 10:
+        for i in range(1, len(pts)):
+            d = ys[i] - ys[i - 1]
+            if d == 0:
+                continue
+            midx = xs[i - 1] + (xs[i] - xs[i - 1]) / 2
+            midy = (ys[i] + ys[i - 1]) / 2
+            color = "#16a34a" if d > 0 else "#dc2626"
+            ax.annotate(f"{d:+d}", (midx, midy), textcoords="offset points",
+                        xytext=(0, -12), ha="center", fontsize=7.5,
+                        color=color, fontweight="bold")
+
+    pct_str = f"{pct:+.0f}%" if pct is not None else "n/a"
+    subtitle = (f"{oldest.count} → {newest.count} logos "
+                f"({total_delta:+d}, {pct_str})   ·   "
+                f"{oldest.label} → {newest.label}")
     ax.set_title(f"Customer logo growth — {domain}", fontsize=13,
-                 fontweight="bold")
+                 fontweight="bold", pad=26)
+    ax.text(0.5, 1.04, subtitle, transform=ax.transAxes, ha="center",
+            fontsize=9.5, color="#6b7280")
     ax.set_ylabel("Logos detected")
     ax.set_xlabel("Date")
     ax.set_ylim(bottom=0)
