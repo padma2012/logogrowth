@@ -4,3 +4,5 @@ beautifulsoup4>=4.12
 # playwright>=1.40
 # Optional, only needed for --chart:
 # matplotlib>=3.6
+# Optional, only needed for the web UI (logogrowth-web):
+# flask>=2.3

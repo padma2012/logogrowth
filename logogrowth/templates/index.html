@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logo Growth — customer traction over time</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --brand:#4f46e5; --brand2:#2563eb; --up:#16a34a; --down:#dc2626;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",
+    Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--brand)}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+
+  header.hero{background:linear-gradient(135deg,#4f46e5 0%,#2563eb 60%,#0ea5e9 100%);
+    color:#fff;padding:54px 0 64px}
+  .hero h1{margin:0;font-size:34px;letter-spacing:-.02em}
+  .hero p.sub{margin:10px 0 28px;font-size:16px;opacity:.92;max-width:620px}
+  .searchbar{display:flex;gap:10px;flex-wrap:wrap}
+  .searchbar input[type=url]{flex:1;min-width:240px;border:0;border-radius:12px;
+    padding:15px 16px;font-size:16px;color:var(--ink);outline:none;
+    box-shadow:0 8px 24px rgba(2,6,23,.18)}
+  .searchbar button{border:0;border-radius:12px;padding:15px 24px;font-size:16px;
+    font-weight:600;background:#0f172a;color:#fff;cursor:pointer;
+    box-shadow:0 8px 24px rgba(2,6,23,.18);transition:transform .05s ease}
+  .searchbar button:active{transform:translateY(1px)}
+  .searchbar button:disabled{opacity:.6;cursor:default}
+  .opts{display:flex;gap:18px;align-items:center;margin-top:16px;font-size:14px;
+    opacity:.95;flex-wrap:wrap}
+  .opts label{display:flex;gap:7px;align-items:center;cursor:pointer}
+  .opts a.demo{color:#fff;text-decoration:underline;cursor:pointer;font-weight:600}
+
+  main{padding:30px 0 60px}
+  .status{display:none;align-items:center;gap:12px;color:var(--muted);
+    font-size:15px;padding:24px 0}
+  .spinner{width:20px;height:20px;border:3px solid var(--line);
+    border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .errbox{display:none;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;
+    padding:14px 16px;border-radius:12px;font-size:14px;margin-top:18px}
+
+  .results{display:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:24px;box-shadow:0 1px 2px rgba(2,6,23,.04);margin-bottom:20px}
+  .rhead{display:flex;justify-content:space-between;align-items:flex-end;
+    flex-wrap:wrap;gap:12px}
+  .rhead .domain{font-size:13px;text-transform:uppercase;letter-spacing:.08em;
+    color:var(--muted);font-weight:700}
+  .rhead h2{margin:4px 0 0;font-size:22px;letter-spacing:-.01em}
+  .headline{display:flex;align-items:baseline;gap:14px;margin:18px 0 4px}
+  .headline .pct{font-size:46px;font-weight:800;letter-spacing:-.02em}
+  .headline .pct.up{color:var(--up)} .headline .pct.down{color:var(--down)}
+  .headline .delta{font-size:16px;color:var(--muted)}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:20px}
+  .stat{background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px}
+  .stat .k{font-size:12px;color:var(--muted);font-weight:600}
+  .stat .v{font-size:22px;font-weight:700;margin-top:4px}
+  @media(max-width:680px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+  .chartwrap{position:relative;height:340px;margin-top:8px}
+
+  h3.sec{font-size:14px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);margin:0 0 12px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#eef2ff;color:#3730a3;border:1px solid #e0e7ff;border-radius:999px;
+    padding:5px 12px;font-size:13px;font-weight:600}
+  .chip.gone{background:#fef2f2;color:#991b1b;border-color:#fecaca;
+    text-decoration:line-through}
+
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  td.err{color:var(--down)}
+
+  .note{color:var(--muted);font-size:12.5px;line-height:1.6;margin-top:6px}
+  footer{color:var(--muted);font-size:13px;text-align:center;padding:30px 0 50px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>Logo Growth</h1>
+    <p class="sub">See how a SaaS company's customer base has grown by tracking
+      the logos on its website — today vs. every snapshot in the Internet
+      Archive. Paste a link to get started.</p>
+    <div class="searchbar">
+      <input id="url" type="url" placeholder="granola.ai" autocomplete="off"
+             spellcheck="false">
+      <button id="scan">Scan&nbsp;→</button>
+    </div>
+    <div class="opts">
+      <label><input id="timeline" type="checkbox" checked> Full timeline
+        (every month)</label>
+      <label><input id="render" type="checkbox"> Render JS (slower, for
+        modern sites)</label>
+      <a class="demo" id="demo">or see a sample report</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <div class="status" id="status">
+      <div class="spinner"></div>
+      <div id="statusText">Scanning the live site and Wayback snapshots…
+        this can take up to a minute.</div>
+    </div>
+    <div class="errbox" id="errbox"></div>
+
+    <div class="results" id="results">
+      <div class="card">
+        <div class="rhead">
+          <div>
+            <div class="domain" id="rDomain">example.com</div>
+            <h2>Customer logo growth</h2>
+          </div>
+          <div id="rSpan" class="note"></div>
+        </div>
+        <div class="headline">
+          <div class="pct" id="rPct">—</div>
+          <div class="delta" id="rDelta"></div>
+        </div>
+        <div class="stats" id="rStats"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="sec">Logos over time</h3>
+        <div class="chartwrap"><canvas id="chart"></canvas></div>
+      </div>
+
+      <div class="card" id="chipsCard">
+        <h3 class="sec">New customer logos this period</h3>
+        <div class="chips" id="rAdded"></div>
+        <div id="droppedBlock" style="margin-top:18px;display:none">
+          <h3 class="sec">No longer shown</h3>
+          <div class="chips" id="rDropped"></div>
+        </div>
+        <p class="note">Names are inferred from each logo's alt text / image
+          filename and are best-effort — the <strong>counts</strong> are the
+          reliable signal.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="sec">All data points</h3>
+        <div style="overflow-x:auto">
+          <table id="rTable">
+            <thead><tr><th>When</th><th>Date</th><th>Source</th>
+              <th style="text-align:right">Logos</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="note">Source = “live” for the current site, otherwise the
+          Wayback Machine capture timestamp (click to view the archived page).</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>Built with the <strong>logogrowth</strong> engine · counts are
+  heuristic; verify headline numbers before quoting them.</footer>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+let chart;
+
+const valueLabels = {
+  id:'valueLabels',
+  afterDatasetsDraw(c){
+    const ctx=c.ctx, ds=c.data.datasets[0], meta=c.getDatasetMeta(0);
+    ctx.save(); ctx.font='600 11px ui-sans-serif,system-ui';
+    ctx.fillStyle='#334155'; ctx.textAlign='center';
+    meta.data.forEach((pt,i)=>ctx.fillText(ds.data[i], pt.x, pt.y-10));
+    ctx.restore();
+  }
+};
+
+function fmtDate(d){
+  const dt=new Date(d+'T00:00:00');
+  return isNaN(dt)? d : dt.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+
+async function doScan(body){
+  $('errbox').style.display='none';
+  $('results').style.display='none';
+  $('status').style.display='flex';
+  $('scan').disabled=true;
+  try{
+    const res = await fetch('/api/scan',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data = await res.json();
+    if(data.error && !(data.points||[]).some(p=>!p.error)){
+      showError(data.error); return;
+    }
+    render(data);
+  }catch(e){ showError('Request failed: '+e.message); }
+  finally{ $('status').style.display='none'; $('scan').disabled=false; }
+}
+
+function showError(msg){
+  $('errbox').textContent = msg;
+  $('errbox').style.display='block';
+}
+
+function render(data){
+  const valid = (data.points||[]).filter(p=>!p.error)
+                  .sort((a,b)=>a.target_date.localeCompare(b.target_date));
+  $('rDomain').textContent = data.domain || '';
+  const s = data.summary || {};
+
+  if(s.to_count!==undefined){
+    const pct = s.pct_change;
+    const up = (s.delta||0) >= 0;
+    const pctEl = $('rPct');
+    pctEl.textContent = (pct===null||pct===undefined)? (up?'+'+s.delta:''+s.delta)
+                         : (pct>=0?'+':'')+Math.round(pct)+'%';
+    pctEl.className = 'pct '+(up?'up':'down');
+    $('rDelta').textContent = `${s.from_count} → ${s.to_count} logos`;
+    $('rSpan').textContent = `${s.from_label} → ${s.to_label}`;
+  } else {
+    $('rPct').textContent = valid.length? valid[valid.length-1].count : '—';
+    $('rPct').className='pct';
+    $('rDelta').textContent = 'logos (need ≥2 snapshots to show growth)';
+    $('rSpan').textContent='';
+  }
+
+  // stat cards
+  const cur = valid.length? valid[valid.length-1] : null;
+  const first = valid.length? valid[0] : null;
+  const cards = [
+    ['Current logos', cur? cur.count : '—'],
+    ['Earliest tracked', first? `${first.count} (${fmtDate(first.target_date)})` : '—'],
+    ['Net new', (s.added? '+'+s.added.length : '—')],
+    ['Data points', valid.length],
+  ];
+  $('rStats').innerHTML = cards.map(([k,v])=>
+    `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  // chart
+  const labels = valid.map(p=> p.label==='current'?'now':fmtDate(p.target_date));
+  const counts = valid.map(p=>p.count);
+  if(typeof Chart === 'undefined'){
+    $('chart').parentElement.innerHTML =
+      '<p class="note">Chart library could not load (offline?) — see the '+
+      'table below for the numbers.</p>';
+  } else {
+    drawChart(labels, counts);
+  }
+
+  // chips
+  const added = s.added||[], dropped = s.dropped||[];
+  $('chipsCard').style.display = added.length||dropped.length? 'block':'none';
+  $('rAdded').innerHTML = added.length? added.map(n=>`<span class="chip">${n}</span>`).join('')
+                            : '<span class="note">No clearly-new named logos detected.</span>';
+  $('droppedBlock').style.display = dropped.length? 'block':'none';
+  $('rDropped').innerHTML = dropped.map(n=>`<span class="chip gone">${n}</span>`).join('');
+
+  // table (all points, newest first)
+  const rows = (data.points||[]).slice()
+                 .sort((a,b)=>b.target_date.localeCompare(a.target_date));
+  $('rTable').querySelector('tbody').innerHTML = rows.map(p=>{
+    const src = p.error? '—'
+      : (p.source==='live'||p.source.startsWith('render')? p.source
+         : `<a href="${p.url_used}" target="_blank" rel="noopener">${p.source}</a>`);
+    const cnt = p.error? `<span class="err">n/a</span>` : p.count;
+    const when = p.error? `${p.label} <span class="err">(${p.error})</span>` : p.label;
+    return `<tr><td>${when}</td><td>${fmtDate(p.target_date)}</td>
+      <td>${src}</td><td class="num">${cnt}</td></tr>`;
+  }).join('');
+
+  $('results').style.display='block';
+  $('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function drawChart(labels, counts){
+  if(chart) chart.destroy();
+  chart = new Chart($('chart'),{
+    type:'line',
+    data:{labels,datasets:[{data:counts,borderColor:'#2563eb',
+      backgroundColor:'rgba(37,99,235,.10)',fill:true,tension:.25,
+      pointBackgroundColor:'#2563eb',pointRadius:4,borderWidth:2.5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:18}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:(c)=>` ${c.parsed.y} logos`}}},
+      scales:{y:{beginAtZero:true,title:{display:true,text:'Customer logos'},
+        ticks:{precision:0}},x:{grid:{display:false}}}},
+    plugins:[valueLabels]
+  });
+}
+
+$('scan').onclick = ()=>{
+  const url = $('url').value.trim();
+  if(!url){ showError('Please enter a website URL, e.g. granola.ai'); return; }
+  $('statusText').textContent = $('timeline').checked
+    ? 'Walking every Wayback snapshot… this can take up to a minute.'
+    : 'Scanning the live site and a few past snapshots…';
+  doScan({url, timeline:$('timeline').checked, render:$('render').checked});
+};
+$('url').addEventListener('keydown', e=>{ if(e.key==='Enter') $('scan').click(); });
+$('demo').onclick = ()=>{
+  $('statusText').textContent='Loading sample report…';
+  doScan({demo:true});
+};
+</script>
+</body>
+</html>

@@ -4,126 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import sys
-from datetime import datetime, timedelta
-from urllib.parse import urlparse
 
-from .detect import detect_logos
-from .fetch import Fetcher, FetchError
-from .report import TimePoint, render_text, build_json
-from .wayback import query_snapshots, closest_snapshot, Snapshot
-
-
-def _normalize_url(raw: str) -> str:
-    if not re.match(r"^https?://", raw):
-        raw = "https://" + raw
-    return raw
-
-
-def _domain(url: str) -> str:
-    return urlparse(url).netloc or url
-
-
-def _label_for(months: int) -> str:
-    if months == 0:
-        return "current"
-    if months % 12 == 0:
-        y = months // 12
-        return f"{y} year{'s' if y > 1 else ''} ago"
-    return f"{months} months ago"
-
-
-def _sanitize(label: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
-
-
-def _get_html(url: str, fetcher: Fetcher, render: bool,
-              screenshot_path: str | None) -> str:
-    if render:
-        from .render import render_html, RenderError
-        try:
-            return render_html(url, screenshot_path=screenshot_path,
-                               user_agent=fetcher.session.headers["User-Agent"])
-        except RenderError as exc:
-            raise FetchError(str(exc)) from exc
-    html, _ = fetcher.get(url)
-    return html
-
-
-def _shot_path(args: argparse.Namespace, label: str) -> str | None:
-    if args.screenshot_dir and args.render:
-        return f"{args.screenshot_dir.rstrip('/')}/{_sanitize(label)}.png"
-    return None
-
-
-def _scan(target_url: str, view_url: str, tp: TimePoint,
-          fetcher: Fetcher, args: argparse.Namespace) -> TimePoint:
-    """Fetch + detect for one time point, filling `tp` in place."""
-    shot_path = _shot_path(args, tp.label)
-    try:
-        html = _get_html(target_url, fetcher, args.render, shot_path)
-    except FetchError as exc:
-        tp.error = str(exc).split("\n")[0][:100]
-        return tp
-    result = detect_logos(html, base_url=view_url)
-    tp.count = result.count
-    tp.names = result.names
-    tp.sections_found = result.sections_found
-    if shot_path:
-        tp.source += " +shot"
-    if args.verbose:
-        print(f"[detect] {tp.label}: {result.count} logos "
-              f"({result.sections_found} sections)", file=sys.stderr)
-    return tp
-
-
-def _current_point(url: str, now: datetime, fetcher: Fetcher,
-                   args: argparse.Namespace) -> TimePoint:
-    tp = TimePoint(label="current", target_date=now.strftime("%Y-%m-%d"),
-                   source="render" if args.render else "live", url_used=url)
-    return _scan(url, url, tp, fetcher, args)
-
-
-def _scan_timeline(url: str, now: datetime, snaps: list[Snapshot],
-                   fetcher: Fetcher, args: argparse.Namespace) -> list[TimePoint]:
-    points = [_current_point(url, now, fetcher, args)]
-    seen_months: set[str] = set()
-    for snap in sorted(snaps, key=lambda s: s.datetime, reverse=True):
-        ym = snap.datetime.strftime("%Y-%m")
-        if ym in seen_months:
-            continue
-        seen_months.add(ym)
-        if args.max_points and (len(points) - 1) >= args.max_points:
-            break
-        tp = TimePoint(label=ym, target_date=snap.datetime.strftime("%Y-%m-%d"),
-                       source=snap.timestamp, url_used=snap.view_url)
-        target_url = snap.view_url if args.render else snap.fetch_url
-        points.append(_scan(target_url, snap.view_url, tp, fetcher, args))
-    points.sort(key=lambda p: p.target_date)  # oldest -> newest
-    return points
-
-
-def _scan_offsets(url: str, now: datetime, snaps: list[Snapshot],
-                  fetcher: Fetcher, args: argparse.Namespace) -> list[TimePoint]:
-    points: list[TimePoint] = []
-    for m in [0] + sorted(set(args.months)):
-        target = now - timedelta(days=round(m * 30.44))
-        if m == 0:
-            points.append(_current_point(url, now, fetcher, args))
-            continue
-        tp = TimePoint(label=_label_for(m),
-                       target_date=target.strftime("%Y-%m-%d"), source="")
-        snap = closest_snapshot(snaps, target, window_days=args.window_days)
-        if snap is None:
-            tp.error = "no snapshot near this date"
-            points.append(tp)
-            continue
-        tp.source = snap.timestamp
-        tp.url_used = snap.view_url
-        target_url = snap.view_url if args.render else snap.fetch_url
-        points.append(_scan(target_url, snap.view_url, tp, fetcher, args))
-    return points
+from .core import scan, ScanOptions
+from .report import render_text, build_json
 
 
 def _write_out(path: str, text: str, kind: str) -> None:
@@ -136,26 +20,20 @@ def _write_out(path: str, text: str, kind: str) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
-    url = _normalize_url(args.url)
-    domain = _domain(url)
-    fetcher = Fetcher(user_agent=args.user_agent, timeout=args.timeout)
-    now = datetime.utcnow()
+    opts = ScanOptions(
+        months=args.months,
+        timeline=args.timeline,
+        render=args.render,
+        max_points=args.max_points,
+        window_days=args.window_days,
+        timeout=args.timeout,
+        user_agent=args.user_agent,
+        screenshot_dir=args.screenshot_dir,
+    )
+    log = (lambda msg: print(f"[scan] {msg}", file=sys.stderr)) \
+        if args.verbose else None
 
-    # Historical points need Wayback snapshots; only query if we need them.
-    snaps: list[Snapshot] = []
-    if args.timeline or any(m > 0 for m in args.months):
-        try:
-            snaps = query_snapshots(domain, fetcher)
-            if args.verbose:
-                print(f"[wayback] {len(snaps)} snapshots found for {domain}",
-                      file=sys.stderr)
-        except (FetchError, ValueError) as exc:
-            print(f"[wayback] snapshot lookup failed: {exc}", file=sys.stderr)
-
-    if args.timeline:
-        points = _scan_timeline(url, now, snaps, fetcher, args)
-    else:
-        points = _scan_offsets(url, now, snaps, fetcher, args)
+    domain, points = scan(args.url, opts, log=log)
 
     print(render_text(domain, points))
 
@@ -165,7 +43,6 @@ def run(args: argparse.Namespace) -> int:
     if args.csv:
         from .report import build_csv
         _write_out(args.csv, build_csv(points), "CSV")
-
     if args.chart:
         from .chart import render_chart, ChartError
         try:

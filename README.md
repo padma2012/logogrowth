@@ -72,6 +72,29 @@ Growth 2024-11 → current: 12 → 42  ▲ +30 (+250%)
 Add `--chart growth.png` (after `pip install matplotlib`) to save the same
 series as a PNG line chart instead of reading the ASCII bars.
 
+## Web UI (paste a link, get a report)
+
+A polished single-page UI for sharing — paste a company URL and get an
+interactive growth chart, a headline like "+180%", new-logo chips, and a data
+table.
+
+```bash
+pip install flask
+python -m logogrowth.webapp           # then open http://127.0.0.1:5000
+# options: --host 0.0.0.0 --port 8080
+```
+
+Click **"see a sample report"** on the page to view a baked-in demo (works with
+no network). A real scan can take up to a minute in timeline mode.
+
+Notes for sharing with others:
+- The chart uses Chart.js from a CDN, so the viewer's browser needs internet
+  (the page still shows the table if the CDN is blocked).
+- The server fetches whatever URL is submitted, so run it locally or behind
+  trusted access — don't expose it to the open internet without auth.
+- For more than a demo, serve it with a real WSGI server, e.g.
+  `gunicorn logogrowth.webapp:app`.
+
 ### JS-heavy sites: `--render`
 
 Many modern landing pages render logos with JavaScript, so they aren't in the
