@@ -6,13 +6,35 @@ Run with:  python -m logogrowth.webapp   (or `logogrowth-web`)
 from __future__ import annotations
 
 import argparse
+import hmac
+import os
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 
 from .core import scan, ScanOptions
 from .report import TimePoint, build_json
 
 app = Flask(__name__)
+
+
+@app.before_request
+def _require_auth():
+    """If LOGOGROWTH_PASSWORD is set, gate the whole app behind basic auth.
+
+    Unset (the default) means no auth — convenient for local use. Always set
+    it when hosting publicly, since the server fetches arbitrary URLs.
+    """
+    password = os.environ.get("LOGOGROWTH_PASSWORD")
+    if not password:
+        return None
+    user = os.environ.get("LOGOGROWTH_USER", "vc")
+    auth = request.authorization
+    ok = (auth and auth.username == user
+          and hmac.compare_digest(auth.password or "", password))
+    if not ok:
+        return Response("Authentication required.", 401,
+                        {"WWW-Authenticate": 'Basic realm="logogrowth"'})
+    return None
 
 
 def _demo_payload() -> dict:

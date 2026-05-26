@@ -31,6 +31,24 @@ def test_missing_url_returns_400():
     assert "error" in r.get_json()
 
 
+def test_basic_auth_gate(monkeypatch=None):
+    import base64
+    os.environ["LOGOGROWTH_PASSWORD"] = "s3cret"
+    os.environ["LOGOGROWTH_USER"] = "vc"
+    try:
+        c = _client()
+        assert c.get("/").status_code == 401          # no creds -> blocked
+        good = base64.b64encode(b"vc:s3cret").decode()
+        assert c.get("/", headers={"Authorization": f"Basic {good}"}
+                     ).status_code == 200             # right creds -> allowed
+        bad = base64.b64encode(b"vc:nope").decode()
+        assert c.get("/", headers={"Authorization": f"Basic {bad}"}
+                     ).status_code == 401             # wrong creds -> blocked
+    finally:
+        os.environ.pop("LOGOGROWTH_PASSWORD", None)
+        os.environ.pop("LOGOGROWTH_USER", None)
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]

@@ -90,10 +90,39 @@ no network). A real scan can take up to a minute in timeline mode.
 Notes for sharing with others:
 - The chart uses Chart.js from a CDN, so the viewer's browser needs internet
   (the page still shows the table if the CDN is blocked).
-- The server fetches whatever URL is submitted, so run it locally or behind
-  trusted access — don't expose it to the open internet without auth.
-- For more than a demo, serve it with a real WSGI server, e.g.
-  `gunicorn logogrowth.webapp:app`.
+- The server fetches whatever URL is submitted, so protect it with a password
+  (see below) before exposing it to the internet.
+
+### Host it (get a shareable link)
+
+Production command (used by all the configs below):
+
+```bash
+gunicorn logogrowth.webapp:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2
+```
+
+**Password-protect it** by setting an env var (strongly recommended for any
+public host — the server makes outbound requests to whatever URL is entered):
+
+```
+LOGOGROWTH_PASSWORD=your-secret      # required to enable auth
+LOGOGROWTH_USER=vc                   # optional, defaults to "vc"
+```
+
+Repo includes ready-made configs:
+
+- **`render.yaml`** — Render.com blueprint (free tier). In Render: *New →
+  Blueprint → pick this repo → Apply*, then set `LOGOGROWTH_PASSWORD` in the
+  dashboard. You get a `https://…onrender.com` link.
+- **`Procfile`** — works on Railway, Heroku, and other buildpack hosts.
+- **`Dockerfile`** — for Fly.io, Google Cloud Run, Railway (Docker), or any
+  container host.
+
+The `--timeout 120` matters: a full-timeline scan of an archive-heavy site can
+take a while. If a big site still times out on a host, untick **"Full
+timeline"** in the UI. The hosted (non-Docker) build uses heuristic detection;
+the **"Render JS"** checkbox needs Playwright + Chromium, which only the Docker
+image can be extended to include.
 
 ### JS-heavy sites: `--render`
 
