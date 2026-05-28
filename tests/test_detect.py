@@ -53,6 +53,30 @@ def test_hash_like_filenames_are_dropped():
     assert _name_from_filename("/logos/37signals.svg") == "37Signals"
 
 
+def test_dedicated_vendors_page_scans_whole_body():
+    """On /vendors, /customers, /partners pages the whole body is the wall —
+    no need for a 'Trusted by' section header."""
+    from logogrowth.detect import detect_logos
+    html = """
+    <html><body>
+      <header><img src="/site-logo.svg" alt="Fleek logo"></header>
+      <main>
+        <h1>Vendors</h1>
+        <div class="grid">
+          <a><img src="/v/acme.svg" alt="Acme"></a>
+          <a><img src="/v/beta.svg" alt="Beta"></a>
+          <a><img src="/v/gamma.svg" alt="Gamma"></a>
+          <a><img src="/v/delta.svg" alt="Delta"></a>
+          <a><img src="/v/echo.svg" alt="Echo"></a>
+        </div>
+      </main>
+    </body></html>"""
+    # No "trusted by" text, no logo-cloud class — heuristic alone would miss.
+    names = detect_logos(html, base_url="https://joinfleek.com/vendors").names
+    assert set(names) >= {"Acme", "Beta", "Gamma", "Delta", "Echo"}
+    assert "Fleek" not in names                     # header logo excluded
+
+
 def test_self_domain_filter():
     from logogrowth.detect import detect_logos
     html = """

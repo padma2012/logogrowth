@@ -35,7 +35,26 @@ def render_html(url: str, timeout_ms: int = 45000,
             except Exception:
                 # Wayback can be slow; keep whatever rendered so far.
                 pass
-            page.wait_for_timeout(2500)
+            page.wait_for_timeout(2000)
+            # Scroll to the bottom in steps so lazy-loaded logos render.
+            try:
+                page.evaluate("""async () => {
+                    await new Promise(resolve => {
+                        let total = 0;
+                        const step = 700;
+                        const tick = setInterval(() => {
+                            window.scrollBy(0, step);
+                            total += step;
+                            if (total >= document.body.scrollHeight) {
+                                clearInterval(tick);
+                                setTimeout(resolve, 900);
+                            }
+                        }, 220);
+                    });
+                }""")
+            except Exception:
+                pass
+            page.wait_for_timeout(800)
             html = page.content()
             if screenshot_path:
                 page.screenshot(path=screenshot_path, full_page=True)

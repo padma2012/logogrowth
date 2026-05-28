@@ -20,14 +20,28 @@ SECTION_TEXT_KEYWORDS = [
     "customers", "our clients", "clients", "loved by", "used by", "powering",
     "join thousands", "join the", "teams at", "works with", "in good company",
     "backed by", "from startups to", "the best teams", "who use", "companies",
-    "as seen in", "as featured in", "featured in", "press",
+    "as seen in", "as featured in", "featured in", "press", "our vendors",
+    "vendors", "our suppliers", "suppliers", "our partners", "merchants",
+    "marketplace", "our brands", "brand directory",
 ]
 
 # class / id fragments that mark a logo-wall container.
 CLASS_SECTION_RE = re.compile(
     r"(logo|brand|client|customer|compan|partner|marquee|trusted|"
-    r"press[-_]|as[-_]?seen|featured)",
+    r"press[-_]|as[-_]?seen|featured|vendor|supplier|merchant|"
+    r"directory|portfolio|showcase)",
     re.I,
+)
+
+# A URL path / page title that means "this whole page IS the logo wall".
+_DEDICATED_PATH_RE = re.compile(
+    r"/(customers?|clients?|partners?|vendors?|suppliers?|merchants?|"
+    r"brands?|portfolio|showcase|directory|marketplace|companies)(/|$)",
+    re.I,
+)
+_DEDICATED_HEADING_RE = re.compile(
+    r"^\s*(our\s+)?(customers?|clients?|partners?|vendors?|suppliers?|"
+    r"merchants?|brands?|companies)\s*$", re.I,
 )
 
 KEYWORD_RE = re.compile("|".join(re.escape(k) for k in SECTION_TEXT_KEYWORDS), re.I)
@@ -287,6 +301,16 @@ def _find_containers(soup) -> list[tuple[object, str]]:
     return out
 
 
+def _is_dedicated_page(soup, page_url: str) -> bool:
+    """True if this page IS the logo wall (e.g. /vendors, /customers)."""
+    if page_url and _DEDICATED_PATH_RE.search(urlparse(page_url).path or ""):
+        return True
+    for tag in soup.find_all(["h1", "h2"])[:4]:
+        if _DEDICATED_HEADING_RE.match(tag.get_text(strip=True)):
+            return True
+    return False
+
+
 def detect_logos(html: str, base_url: str = "",
                  self_domain: str = "") -> DetectionResult:
     """Parse `html` and return the customer/partner logos it advertises.
@@ -295,8 +319,13 @@ def detect_logos(html: str, base_url: str = "",
     own brand logo if it appears outside header/nav/footer.
     """
     soup = BeautifulSoup(html or "", "html.parser")
-    containers = _find_containers(soup)
     self_keys = _self_keys(self_domain)
+    if _is_dedicated_page(soup, base_url):
+        # On a /vendors-style page the whole body is the logo wall.
+        body = soup.find("body") or soup
+        containers = [(body, "dedicated-page")]
+    else:
+        containers = _find_containers(soup)
 
     def is_self(logo):
         if not self_keys or not logo.name:
