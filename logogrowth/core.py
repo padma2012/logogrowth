@@ -162,14 +162,19 @@ def scan(url: str, opts: ScanOptions | None = None,
 
     url = normalize_url(url)
     domain = domain_of(url)
+    # If the user pointed at a specific page (e.g. /suppliers), look up
+    # snapshots of THAT path. Otherwise fall back to the whole site.
+    parsed = urlparse(url)
+    path = (parsed.path or "").rstrip("/")
+    lookup = (parsed.netloc + path) if path else domain
     fetcher = Fetcher(user_agent=opts.user_agent, timeout=opts.timeout)
     now = datetime.utcnow()
 
     snaps: list[Snapshot] = []
     if opts.timeline or any(m > 0 for m in opts.months):
         try:
-            snaps = query_snapshots(domain, fetcher)
-            log(f"wayback: {len(snaps)} snapshots found for {domain}")
+            snaps = query_snapshots(lookup, fetcher)
+            log(f"wayback: {len(snaps)} snapshots found for {lookup}")
         except (FetchError, ValueError) as exc:
             log(f"wayback: snapshot lookup failed: {exc}")
 
