@@ -37,35 +37,62 @@ def _require_auth():
     return None
 
 
+_LOGO_DOMAINS = {
+    "Stripe": "stripe.com", "Notion": "notion.so", "Ramp": "ramp.com",
+    "Vercel": "vercel.com", "Linear": "linear.app", "Loom": "loom.com",
+    "Figma": "figma.com", "Retool": "retool.com", "Census": "getcensus.com",
+    "Hex": "hex.tech", "Webflow": "webflow.com", "Mercury": "mercury.com",
+    "Brex": "brex.com", "Deel": "deel.com", "Rippling": "rippling.com",
+    "Airtable": "airtable.com", "Amplitude": "amplitude.com",
+    "Snowflake": "snowflake.com", "Datadog": "datadoghq.com",
+    "Plaid": "plaid.com", "Scale": "scale.com", "Anthropic": "anthropic.com",
+    "OpenAI": "openai.com", "Cursor": "cursor.com",
+    "Perplexity": "perplexity.ai", "Replit": "replit.com", "Vanta": "vanta.com",
+    "Clay": "clay.com", "Attio": "attio.com", "Pylon": "usepylon.com",
+    "Cohere": "cohere.com", "Mistral": "mistral.ai", "Sierra": "sierra.ai",
+    "Decagon": "decagon.ai", "Harvey": "harvey.ai", "Glean": "glean.com",
+}
+
+
+def _logo(name: str) -> dict:
+    d = _LOGO_DOMAINS.get(name)
+    return {"name": name,
+            "src": f"https://logo.clearbit.com/{d}?size=128" if d else ""}
+
+
 def _demo_payload() -> dict:
     """Canned data so the UI is viewable without network access."""
-    pts = [
-        TimePoint("2024-05", "2024-05-12", "20240512", count=6,
-                  names=["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom"]),
-        TimePoint("2024-11", "2024-11-18", "20241118", count=11,
-                  names=["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom",
-                         "Figma", "Retool", "Census", "Hex", "Webflow"]),
-        TimePoint("2025-05", "2025-05-18", "20250518", count=17,
-                  names=["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom",
-                         "Figma", "Retool", "Census", "Hex", "Webflow", "Mercury",
-                         "Brex", "Deel", "Rippling", "Airtable", "Amplitude"]),
-        TimePoint("2025-11", "2025-11-20", "20251120", count=26,
-                  names=["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom",
-                         "Figma", "Retool", "Census", "Hex", "Webflow", "Mercury",
-                         "Brex", "Deel", "Rippling", "Airtable", "Amplitude",
-                         "Snowflake", "Datadog", "Plaid", "Scale", "Anthropic",
-                         "OpenAI", "Cursor", "Perplexity", "Replit"]),
-        TimePoint("current", "2026-05-24", "live", url_used="https://granola.ai",
-                  count=38,
-                  names=["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom",
-                         "Figma", "Retool", "Census", "Hex", "Webflow", "Mercury",
-                         "Brex", "Deel", "Rippling", "Airtable", "Amplitude",
-                         "Snowflake", "Datadog", "Plaid", "Scale", "Anthropic",
-                         "OpenAI", "Cursor", "Perplexity", "Replit", "Vanta",
-                         "Clay", "Attio", "Pylon", "Granola", "Cohere",
-                         "Mistral", "Sierra", "Decagon", "Harvey", "Glean",
-                         "Notion AI"]),
+    sets = [
+        ["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom"],
+        ["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom", "Figma",
+         "Retool", "Census", "Hex", "Webflow"],
+        ["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom", "Figma",
+         "Retool", "Census", "Hex", "Webflow", "Mercury", "Brex", "Deel",
+         "Rippling", "Airtable", "Amplitude"],
+        ["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom", "Figma",
+         "Retool", "Census", "Hex", "Webflow", "Mercury", "Brex", "Deel",
+         "Rippling", "Airtable", "Amplitude", "Snowflake", "Datadog", "Plaid",
+         "Scale", "Anthropic", "OpenAI", "Cursor", "Perplexity", "Replit"],
+        ["Stripe", "Notion", "Ramp", "Vercel", "Linear", "Loom", "Figma",
+         "Retool", "Census", "Hex", "Webflow", "Mercury", "Brex", "Deel",
+         "Rippling", "Airtable", "Amplitude", "Snowflake", "Datadog", "Plaid",
+         "Scale", "Anthropic", "OpenAI", "Cursor", "Perplexity", "Replit",
+         "Vanta", "Clay", "Attio", "Pylon", "Cohere", "Mistral", "Sierra",
+         "Decagon", "Harvey", "Glean"],
     ]
+    meta = [
+        ("2024-05", "2024-05-12", "20240512"),
+        ("2024-11", "2024-11-18", "20241118"),
+        ("2025-05", "2025-05-18", "20250518"),
+        ("2025-11", "2025-11-20", "20251120"),
+        ("current", "2026-05-24", "live"),
+    ]
+    pts = []
+    for (label, date, src), names in zip(meta, sets):
+        logos = [_logo(n) for n in names]
+        pts.append(TimePoint(label=label, target_date=date, source=src,
+                             url_used="https://granola.ai" if src == "live" else "",
+                             count=len(names), names=names, logos=logos))
     return build_json("granola.ai (demo)", pts)
 
 

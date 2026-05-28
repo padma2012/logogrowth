@@ -60,6 +60,35 @@ _IMG_EXT = re.compile(r"\.(svg|png|jpe?g|webp|gif|avif)$", re.I)
 _HEXISH = re.compile(r"^[0-9a-f]{8,}$", re.I)
 
 
+def _looks_like_hash(s: str) -> bool:
+    """Detect random IDs / hashes that some CMSes (Webflow, Framer, …) use as
+    filenames. Real company names are short or contain spaces; long mixed
+    alphanumeric blobs are almost always asset IDs."""
+    compact = re.sub(r"\s+", "", s)
+    if len(compact) < 16:
+        return False
+    has_digit = any(c.isdigit() for c in compact)
+    has_alpha = any(c.isalpha() for c in compact)
+    return has_digit and has_alpha
+
+
+def _normalize_key(s: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
+def _self_keys(self_domain: str) -> set[str]:
+    """Identifiers that mean "this is the scanned company's own logo, drop it"."""
+    if not self_domain:
+        return set()
+    host = re.sub(r"^www\.", "", self_domain.lower().split(":")[0])
+    parts = [p for p in host.split(".") if p]
+    if not parts:
+        return set()
+    brand = parts[-2] if len(parts) >= 2 else parts[0]   # "wonderstudios" of "wonderstudios.com"
+    join = "".join(parts[:-1]) if len(parts) >= 2 else parts[0]
+    return {_normalize_key(k) for k in (brand, join) if len(_normalize_key(k)) >= 4}
+
+
 @dataclass
 class Logo:
     name: str
@@ -117,6 +146,8 @@ def _name_from_filename(src: str) -> str:
     base = _FILENAME_NOISE.sub(" ", base)
     base = re.sub(r"\s+", " ", base).strip()
     if not base or _HEXISH.match(base.replace(" ", "")):
+        return ""
+    if _looks_like_hash(base):
         return ""
     return base.title()
 
@@ -256,10 +287,22 @@ def _find_containers(soup) -> list[tuple[object, str]]:
     return out
 
 
-def detect_logos(html: str, base_url: str = "") -> DetectionResult:
-    """Parse `html` and return the customer/partner logos it advertises."""
+def detect_logos(html: str, base_url: str = "",
+                 self_domain: str = "") -> DetectionResult:
+    """Parse `html` and return the customer/partner logos it advertises.
+
+    `self_domain` (e.g. "granola.ai") is used to drop the scanned company's
+    own brand logo if it appears outside header/nav/footer.
+    """
     soup = BeautifulSoup(html or "", "html.parser")
     containers = _find_containers(soup)
+    self_keys = _self_keys(self_domain)
+
+    def is_self(logo):
+        if not self_keys or not logo.name:
+            return False
+        nk = _normalize_key(logo.name)
+        return any(k in nk for k in self_keys)
 
     found: dict[str, Logo] = {}
     for container, hint in containers:
@@ -267,10 +310,12 @@ def detect_logos(html: str, base_url: str = "") -> DetectionResult:
             if _in_chrome(el):
                 continue
             logo = _build_logo(el, base_url, hint)
-            if logo is None:
+            if logo is None or is_self(logo):
                 continue
             found.setdefault(logo.key(), logo)
         for logo in _bg_logos(container, base_url, hint):
+            if is_self(logo):
+                continue
             found.setdefault(logo.key(), logo)
 
     return DetectionResult(logos=list(found.values()), sections_found=len(containers))

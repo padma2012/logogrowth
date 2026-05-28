@@ -41,6 +41,31 @@ def test_name_from_filename():
     assert _name_from_filename("/i/9f8a7b6c5d4e.png") == ""
 
 
+def test_hash_like_filenames_are_dropped():
+    # Webflow / Framer style asset IDs — long, mixed letters+digits.
+    for f in [
+        "/cdn/Buu7Zjsbxt7R5D84Pdibpnc1Q2S.png",
+        "/uploads/7Hq2Rfosnkv4Efb6Trd4Pdj81Bk.svg",
+        "/x/V0Bdq8S9Fn7Hkyydaej3Ikwt50.webp",
+    ]:
+        assert _name_from_filename(f) == "", f"should reject {f}"
+    # Real short names with digits are kept.
+    assert _name_from_filename("/logos/37signals.svg") == "37Signals"
+
+
+def test_self_domain_filter():
+    from logogrowth.detect import detect_logos
+    html = """
+      <section class="logo-cloud"><p>Trusted by</p>
+        <img src="/logos/wonderstudios-mark.svg" alt="Wonder Studios">
+        <img src="/logos/runway.svg" alt="Runway">
+        <img src="/logos/openai.svg" alt="OpenAI">
+      </section>"""
+    names = detect_logos(html, self_domain="wonderstudios.com").names
+    assert "Wonder Studios" not in names      # company's own brand dropped
+    assert {"Runway", "OpenAI"}.issubset(set(names))
+
+
 def test_strip_wayback():
     u = "https://web.archive.org/web/20230101000000im_/https://acme.ai/logo.svg"
     assert strip_wayback(u) == "https://acme.ai/logo.svg"

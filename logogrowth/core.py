@@ -75,7 +75,8 @@ def _shot_path(opts: ScanOptions, label: str) -> str | None:
 
 
 def _scan_point(target_url: str, view_url: str, tp: TimePoint,
-                fetcher: Fetcher, opts: ScanOptions, log: Logger) -> TimePoint:
+                fetcher: Fetcher, opts: ScanOptions, log: Logger,
+                self_domain: str = "") -> TimePoint:
     shot_path = _shot_path(opts, tp.label)
     try:
         html = _get_html(target_url, fetcher, opts, shot_path)
@@ -83,9 +84,11 @@ def _scan_point(target_url: str, view_url: str, tp: TimePoint,
         tp.error = str(exc).split("\n")[0][:100]
         log(f"{tp.label}: error — {tp.error}")
         return tp
-    result = detect_logos(html, base_url=view_url)
+    result = detect_logos(html, base_url=view_url, self_domain=self_domain)
     tp.count = result.count
     tp.names = result.names
+    tp.logos = [{"name": lg.name, "src": lg.src} for lg in result.logos
+                if lg.src and not lg.src.startswith("data:")][:80]
     tp.sections_found = result.sections_found
     if shot_path:
         tp.source += " +shot"
@@ -94,16 +97,17 @@ def _scan_point(target_url: str, view_url: str, tp: TimePoint,
 
 
 def _current_point(url: str, now: datetime, fetcher: Fetcher,
-                   opts: ScanOptions, log: Logger) -> TimePoint:
+                   opts: ScanOptions, log: Logger,
+                   self_domain: str = "") -> TimePoint:
     tp = TimePoint(label="current", target_date=now.strftime("%Y-%m-%d"),
                    source="render" if opts.render else "live", url_used=url)
-    return _scan_point(url, url, tp, fetcher, opts, log)
+    return _scan_point(url, url, tp, fetcher, opts, log, self_domain)
 
 
 def _scan_timeline(url: str, now: datetime, snaps: list[Snapshot],
                    fetcher: Fetcher, opts: ScanOptions,
-                   log: Logger) -> list[TimePoint]:
-    points = [_current_point(url, now, fetcher, opts, log)]
+                   log: Logger, self_domain: str = "") -> list[TimePoint]:
+    points = [_current_point(url, now, fetcher, opts, log, self_domain)]
     seen_months: set[str] = set()
     cutoff = (now - timedelta(days=int(365.25 * opts.since_years))
               if opts.since_years > 0 else None)
@@ -120,19 +124,20 @@ def _scan_timeline(url: str, now: datetime, snaps: list[Snapshot],
                        source=snap.timestamp, url_used=snap.view_url)
         target_url = snap.view_url if opts.render else snap.fetch_url
         points.append(_scan_point(target_url, snap.view_url, tp, fetcher,
-                                  opts, log))
+                                  opts, log, self_domain))
     points.sort(key=lambda p: p.target_date)  # oldest -> newest
     return points
 
 
 def _scan_offsets(url: str, now: datetime, snaps: list[Snapshot],
                   fetcher: Fetcher, opts: ScanOptions,
-                  log: Logger) -> list[TimePoint]:
+                  log: Logger, self_domain: str = "") -> list[TimePoint]:
     points: list[TimePoint] = []
     for m in [0] + sorted(set(opts.months)):
         target = now - timedelta(days=round(m * 30.44))
         if m == 0:
-            points.append(_current_point(url, now, fetcher, opts, log))
+            points.append(_current_point(url, now, fetcher, opts, log,
+                                         self_domain))
             continue
         tp = TimePoint(label=label_for(m),
                        target_date=target.strftime("%Y-%m-%d"), source="")
@@ -145,7 +150,7 @@ def _scan_offsets(url: str, now: datetime, snaps: list[Snapshot],
         tp.url_used = snap.view_url
         target_url = snap.view_url if opts.render else snap.fetch_url
         points.append(_scan_point(target_url, snap.view_url, tp, fetcher,
-                                  opts, log))
+                                  opts, log, self_domain))
     return points
 
 
@@ -169,5 +174,7 @@ def scan(url: str, opts: ScanOptions | None = None,
             log(f"wayback: snapshot lookup failed: {exc}")
 
     if opts.timeline:
-        return domain, _scan_timeline(url, now, snaps, fetcher, opts, log)
-    return domain, _scan_offsets(url, now, snaps, fetcher, opts, log)
+        return domain, _scan_timeline(url, now, snaps, fetcher, opts, log,
+                                      self_domain=domain)
+    return domain, _scan_offsets(url, now, snaps, fetcher, opts, log,
+                                 self_domain=domain)

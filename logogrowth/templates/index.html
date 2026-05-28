@@ -79,6 +79,21 @@
   .chip.gone{background:#fef2f2;color:#991b1b;border-color:#fecaca;
     text-decoration:line-through}
 
+  .logogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));
+    gap:12px}
+  .logocell{background:#fff;border:1px solid var(--line);border-radius:12px;
+    height:84px;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;padding:10px;transition:transform .15s,
+    box-shadow .15s;overflow:hidden;position:relative}
+  .logocell:hover{transform:translateY(-2px);
+    box-shadow:0 6px 16px rgba(2,6,23,.08)}
+  .logocell img{max-width:100%;max-height:54px;object-fit:contain;display:block}
+  .logocell .nm{font-size:12px;color:var(--muted);font-weight:600;
+    text-align:center;line-height:1.25;padding:0 4px}
+  .logocell .nmfb{display:none}
+  .logocell.fallback .nmfb{display:block}
+  .logocell.fallback img{display:none}
+
   table{width:100%;border-collapse:collapse;font-size:14px}
   th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
@@ -150,6 +165,15 @@
         <div class="chartwrap"><canvas id="chart"></canvas></div>
       </div>
 
+      <div class="card" id="gridCard" style="display:none">
+        <div class="rhead">
+          <h3 class="sec" style="margin:0">Customer logos today
+            (<span id="gridCount">0</span>)</h3>
+          <div class="note" id="gridSrc"></div>
+        </div>
+        <div class="logogrid" id="logogrid" style="margin-top:14px"></div>
+      </div>
+
       <div class="card" id="chipsCard">
         <h3 class="sec">New customer logos this period</h3>
         <div class="chips" id="rAdded"></div>
@@ -184,6 +208,11 @@
 <script>
 const $ = (id)=>document.getElementById(id);
 let chart;
+
+function esc(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g,
+    c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 
 const valueLabels = {
   id:'valueLabels',
@@ -266,6 +295,29 @@ function render(data){
       'table below for the numbers.</p>';
   } else {
     drawChart(labels, counts);
+  }
+
+  // customer logo grid (newest snapshot)
+  const newest = valid.length ? valid[valid.length-1] : null;
+  const gridLogos = (newest && newest.logos) ? newest.logos : [];
+  if (gridLogos.length){
+    $('gridCard').style.display='block';
+    $('gridCount').textContent = gridLogos.length;
+    $('gridSrc').textContent = newest.label==='current'
+      ? 'as shown on the live site'
+      : 'as of '+ fmtDate(newest.target_date);
+    $('logogrid').innerHTML = gridLogos.map((l,i)=>{
+      const name = esc(l.name||'?');
+      const src  = esc(l.src||'');
+      const hasImg = !!l.src;
+      return `<div class="logocell${hasImg?'':' fallback'}" title="${name}">
+        ${hasImg?`<img src="${src}" alt="${name}" referrerpolicy="no-referrer"
+          onerror="this.closest('.logocell').classList.add('fallback')">`:''}
+        <span class="nm nmfb">${name}</span>
+      </div>`;
+    }).join('');
+  } else {
+    $('gridCard').style.display='none';
   }
 
   // chips

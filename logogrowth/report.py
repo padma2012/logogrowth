@@ -14,6 +14,7 @@ class TimePoint:
     url_used: str = ""
     count: int = 0
     names: list[str] = field(default_factory=list)
+    logos: list[dict] = field(default_factory=list)   # [{"name", "src"}, ...]
     sections_found: int = 0
     error: str = ""
 
@@ -99,6 +100,10 @@ def build_json(domain: str, points: list[TimePoint]) -> dict:
     if len(valid) >= 2:
         oldest, newest = _oldest_newest(points)
         delta = newest.count - oldest.count
+        added = sorted(set(newest.names) - set(oldest.names))
+        dropped = sorted(set(oldest.names) - set(newest.names))
+        newest_by_name = {l["name"]: l for l in newest.logos if l.get("name")}
+        oldest_by_name = {l["name"]: l for l in oldest.logos if l.get("name")}
         summary = {
             "from_label": oldest.label,
             "to_label": newest.label,
@@ -106,8 +111,10 @@ def build_json(domain: str, points: list[TimePoint]) -> dict:
             "to_count": newest.count,
             "delta": delta,
             "pct_change": (delta / oldest.count * 100) if oldest.count else None,
-            "added": sorted(set(newest.names) - set(oldest.names)),
-            "dropped": sorted(set(oldest.names) - set(newest.names)),
+            "added": added,
+            "dropped": dropped,
+            "added_logos": [newest_by_name[n] for n in added if n in newest_by_name],
+            "dropped_logos": [oldest_by_name[n] for n in dropped if n in oldest_by_name],
         }
     return {
         "domain": domain,
