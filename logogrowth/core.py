@@ -18,6 +18,7 @@ from .wayback import query_snapshots, closest_snapshot, Snapshot
 class ScanOptions:
     months: list[int] = field(default_factory=lambda: [6, 12, 18])
     timeline: bool = False
+    since_years: int = 0          # 0 = no cap; otherwise drop snapshots older than this
     render: bool = False
     max_points: int = 0
     window_days: int = 120
@@ -104,7 +105,11 @@ def _scan_timeline(url: str, now: datetime, snaps: list[Snapshot],
                    log: Logger) -> list[TimePoint]:
     points = [_current_point(url, now, fetcher, opts, log)]
     seen_months: set[str] = set()
+    cutoff = (now - timedelta(days=int(365.25 * opts.since_years))
+              if opts.since_years > 0 else None)
     for snap in sorted(snaps, key=lambda s: s.datetime, reverse=True):
+        if cutoff and snap.datetime < cutoff:
+            break  # sorted newest-first, so the rest are older too
         ym = snap.datetime.strftime("%Y-%m")
         if ym in seen_months:
             continue

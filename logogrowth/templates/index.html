@@ -34,6 +34,10 @@
   .opts{display:flex;gap:18px;align-items:center;margin-top:16px;font-size:14px;
     opacity:.95;flex-wrap:wrap}
   .opts label{display:flex;gap:7px;align-items:center;cursor:pointer}
+  .opts select{background:rgba(255,255,255,.18);color:#fff;border:1px solid
+    rgba(255,255,255,.35);border-radius:8px;padding:3px 7px;font-size:14px;
+    cursor:pointer}
+  .opts select option{color:var(--ink)}
   .opts a.demo{color:#fff;text-decoration:underline;cursor:pointer;font-weight:600}
 
   main{padding:30px 0 60px}
@@ -100,6 +104,15 @@
     <div class="opts">
       <label><input id="timeline" type="checkbox" checked> Full timeline
         (every month)</label>
+      <label>Look back
+        <select id="years">
+          <option value="1">1 year</option>
+          <option value="3">3 years</option>
+          <option value="5" selected>5 years</option>
+          <option value="10">10 years</option>
+          <option value="0">all time</option>
+        </select>
+      </label>
       <label><input id="render" type="checkbox"> Render JS (slower, for
         modern sites)</label>
       <a class="demo" id="demo">or see a sample report</a>
@@ -303,7 +316,8 @@ $('scan').onclick = ()=>{
   $('statusText').textContent = $('timeline').checked
     ? 'Walking every Wayback snapshot… this can take up to a minute.'
     : 'Scanning the live site and a few past snapshots…';
-  doScan({url, timeline:$('timeline').checked, render:$('render').checked});
+  doScan({url, timeline:$('timeline').checked, render:$('render').checked,
+          since_years: parseInt($('years').value, 10)});
 };
 $('url').addEventListener('keydown', e=>{ if(e.key==='Enter') $('scan').click(); });
 $('demo').onclick = ()=>{

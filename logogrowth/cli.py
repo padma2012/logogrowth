@@ -23,6 +23,7 @@ def run(args: argparse.Namespace) -> int:
     opts = ScanOptions(
         months=args.months,
         timeline=args.timeline,
+        since_years=args.since_years,
         render=args.render,
         max_points=args.max_points,
         window_days=args.window_days,
@@ -70,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-points", type=int, default=0, metavar="N",
                    help="in --timeline mode, cap to the N most recent "
                         "snapshots (0 = no limit)")
+    p.add_argument("--since-years", type=int, default=0, metavar="N",
+                   help="in --timeline mode, only include snapshots from the "
+                        "last N years (0 = all time)")
     p.add_argument("--csv", metavar="PATH",
                    help="write a CSV report to PATH ('-' for stdout)")
     p.add_argument("--chart", metavar="PATH",

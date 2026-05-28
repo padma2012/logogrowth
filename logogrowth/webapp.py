@@ -87,6 +87,7 @@ def api_scan():
 
     opts = ScanOptions(
         timeline=bool(data.get("timeline", True)),
+        since_years=int(data.get("since_years", 5) or 0),
         render=bool(data.get("render", False)),
         months=data.get("months") or [6, 12, 18],
         max_points=int(data.get("max_points", 0) or 0),
