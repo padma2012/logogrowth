@@ -2,6 +2,8 @@
 
 Track a SaaS company's **customer/partner logo wall** over time to gauge growth.
 
+Live site: https://logogrowth.onrender.com/
+
 Marketing sites for AI/SaaS companies (e.g. [granola.ai](https://granola.ai))
 show a "Trusted by…" strip of customer logos. The number of logos is a rough
 proxy for how fast the company is landing customers. `logogrowth` scans a site
