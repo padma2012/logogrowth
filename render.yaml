@@ -1,13 +1,14 @@
-# Render.com blueprint. In Render: New → Blueprint → pick this repo.
+# Render.com blueprint.  In Render: New → Blueprint → pick this repo → Apply.
+# Uses Docker (not the plain Python runtime) so the "Render JS" option in the
+# UI actually works on the hosted version — Chromium is baked into the image.
 services:
   - type: web
     name: logogrowth
-    runtime: python
+    runtime: docker
     plan: free
-    buildCommand: pip install -r requirements-web.txt
-    startCommand: gunicorn logogrowth.webapp:app --bind 0.0.0.0:$PORT --timeout 120 --workers 2
     envVars:
       # Set a value in the Render dashboard to password-protect the site.
+      # Without this set, the URL is open to anyone with the link.
       - key: LOGOGROWTH_PASSWORD
         sync: false
       - key: LOGOGROWTH_USER
